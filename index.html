@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Live Preview</title>
+
+    <!-- GitHub Markdown CSS -->
+    <link rel="stylesheet" href="css/github-markdown.css">
+
+    <!-- Highlight.js theme -->
+    <link rel="stylesheet" href="css/github-dark.css">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, Tahoma, sans-serif;
+            background: #f3f4f6;
+            color: #24292f;
+        }
+
+        header {
+            min-height: 55px;
+            background: #24292f;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 20px;
+        }
+
+        header h2 {
+            font-size: 18px;
+            margin: 0;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: 0;
+            padding: 8px 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #0969da;
+            color: white;
+        }
+
+        button:hover {
+            background: #0550ae;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 95px);
+            min-height: 300px;
+            padding: 12px;
+            gap: 12px;
+        }
+
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: white;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 12px;
+            background: #eaeef2;
+            border-bottom: 1px solid #d0d7de;
+            font-weight: bold;
+        }
+
+        #editor {
+            width: 100%;
+            height: 100%;
+            resize: none;
+            border: none;
+            outline: none;
+            padding: 18px;
+            font-family: Consolas, monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        #preview {
+            padding: 20px;
+            overflow-y: auto;
+            height: 100%;
+        }
+
+        .markdown-body {
+            font-size: 15px;
+        }
+
+        .markdown-body pre {
+            border-radius: 6px;
+        }
+
+        footer {
+            min-height: 40px;
+            background: white;
+            border-top: 1px solid #d0d7de;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 15px;
+            font-size: 12px;
+            color: #57606a;
+        }
+
+        @media (max-width: 700px) {
+            .container {
+                flex-direction: column;
+                height: calc(100vh - 115px);
+            }
+
+            .panel {
+                min-height: 0;
+            }
+
+            header h2 {
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h2>📝 Markdown Live Preview</h2>
+
+    <div class="toolbar">
+        <button type="button" onclick="downloadMarkdown()">Download .md</button>
+        <button type="button" onclick="clearEditor()">Clear</button>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- Markdown Editor -->
+    <section class="panel">
+        <div class="panel-header">Markdown Editor</div>
+
+        <textarea id="editor" spellcheck="false"># Markdown Live Preview
+
+สวัสดีครับ ยินดีต้อนรับสู่ Markdown Live Preview
+
+## คุณสมบัติ
+
+- รองรับ Markdown
+- แสดงผลแบบ Real-time
+- รองรับ Code Highlighting
+- รองรับตาราง (Table)
+- รองรับรูปภาพและลิงก์
+- นับคำภาษาไทยและภาษาอังกฤษ
+
+## ตัวอย่างข้อความ
+
+**ข้อความตัวหนา**
+
+*ข้อความตัวเอียง*
+
+~~ข้อความขีดฆ่า~~
+
+## Code Example
+
+```python
+def hello():
+    print("Hello World!")
+
+hello()
+```
+
+## ตาราง
+
+| Name | Version |
+|------|---------|
+| HTML | 5 |
+| CSS | 3 |
+| JavaScript | ES6 |
+
+## ลิงก์
+
+[OpenAI](https://openai.com)
+</textarea>
+    </section>
+
+    <!-- HTML Preview -->
+    <section class="panel">
+        <div class="panel-header">Live Preview</div>
+        <div id="preview" class="markdown-body"></div>
+    </section>
+
+</div>
+
+<footer>
+    <span id="status">Ready</span>
+    <span id="wordCount">0 Words</span>
+</footer>
+
+<!-- Marked.js (ติดตั้งผ่าน npm install marked) -->
+<script src="./node_modules/marked/lib/marked.umd.js"></script>
+
+<!-- DOMPurify -->
+<script src="./libs/purify.min.js"></script>
+
+<!-- Highlight.js -->
+<script src="./libs/highlight/highlight.min.js"></script>
+
+<script>
+    const editor = document.getElementById("editor");
+    const preview = document.getElementById("preview");
+    const wordCountElement = document.getElementById("wordCount");
+    const statusElement = document.getElementById("status");
+
+    // Configure Marked
+    marked.setOptions({
+        gfm: true,
+        breaks: true
+    });
+
+    /**
+     * นับคำภาษาไทยและภาษาอังกฤษด้วย Intl.Segmenter
+     * โดยไม่นับช่องว่างและเครื่องหมายวรรคตอนเป็นคำ
+     */
+    function countWords(text) {
+        if (!text.trim()) {
+            return 0;
+        }
+
+        if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+            const segmenter = new Intl.Segmenter("th", {
+                granularity: "word"
+            });
+
+            let count = 0;
+
+            for (const segment of segmenter.segment(text)) {
+                if (segment.isWordLike) {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        // Fallback สำหรับ Browser ที่ไม่รองรับ Intl.Segmenter
+        return text.trim().split(/\s+/).filter(Boolean).length;
+    }
+
+    // Render Markdown
+    function updatePreview() {
+        const markdown = editor.value;
+
+        // Convert Markdown to HTML
+        const html = marked.parse(markdown);
+
+        // Sanitize HTML for security
+        preview.innerHTML = DOMPurify.sanitize(html);
+
+        // Highlight code blocks (ถ้ามี Highlight.js โหลดสำเร็จ)
+        if (window.hljs) {
+            preview.querySelectorAll("pre code").forEach((block) => {
+                hljs.highlightElement(block);
+            });
+        }
+
+        // Word count
+        const words = countWords(markdown);
+        wordCountElement.textContent = words.toLocaleString("th-TH") + " Words";
+
+        statusElement.textContent = "Preview Updated";
+    }
+
+    // Live Preview
+    editor.addEventListener("input", updatePreview);
+
+    // Clear editor
+    function clearEditor() {
+        if (confirm("ต้องการล้างข้อความทั้งหมดหรือไม่?")) {
+            editor.value = "";
+            updatePreview();
+            editor.focus();
+        }
+    }
+
+    // Download Markdown
+    function downloadMarkdown() {
+        const blob = new Blob(
+            [editor.value],
+            { type: "text/markdown;charset=utf-8" }
+        );
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+
+        a.href = url;
+        a.download = "document.md";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        URL.revokeObjectURL(url);
+    }
+
+    // Initial render
+    updatePreview();
+</script>
+
+</body>
+</html>
